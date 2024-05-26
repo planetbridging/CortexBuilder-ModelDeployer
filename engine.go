@@ -10,7 +10,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-var dataArray []map[string]interface{}
+var dataArray []map[string]NetworkConfig
 
 func main() {
 	err := godotenv.Load()
@@ -57,17 +57,17 @@ func customCORSHandler(c *fiber.Ctx) error {
 	return c.Next()
 }
 
-func fetchData(url string) (map[string]interface{}, error) {
+func fetchData(url string) (NetworkConfig, error) {
 	resp, err := http.Get(url)
 	if err != nil {
-		return nil, err
+		return NetworkConfig{}, err
 	}
 	defer resp.Body.Close()
 
-	var data map[string]interface{}
+	var data NetworkConfig
 	err = json.NewDecoder(resp.Body).Decode(&data)
 	if err != nil {
-		return nil, err
+		return NetworkConfig{}, err
 	}
 
 	return data, nil

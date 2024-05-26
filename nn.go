@@ -25,7 +25,7 @@ type NetworkConfig struct {
 	Layers struct {
 		Input  Layer   `json:"input"`
 		Hidden []Layer `json:"hidden"`
-		Output Layer   `json:"output"`
+		Output Layer   `json://json:"output"`
 	} `json:"layers"`
 }
 

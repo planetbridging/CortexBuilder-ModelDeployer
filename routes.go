@@ -26,6 +26,10 @@ func setupRoutes(app *fiber.App) {
 		return handleStatus(c)
 	})
 
+	app.Get("/feedforward", func(c *fiber.Ctx) error {
+		return handleFeedforward(c)
+	})
+
 	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
 		for {
 			_, msg, err := c.ReadMessage()
@@ -73,6 +77,23 @@ func setupRoutes(app *fiber.App) {
 			case "status":
 				status := getStatus()
 				jsonData, _ = json.Marshal(status)
+
+			case "feedforward":
+				index, _ := strconv.Atoi(m["index"])
+				uuid := m["uuid"]
+				var inputs map[string]float64
+				err := json.Unmarshal([]byte(m["inputs"]), &inputs)
+				if err != nil {
+					result["error"] = "Invalid input values"
+				} else {
+					outputs, err := feedforwardFromDataArray(index, uuid, inputs)
+					if err != nil {
+						result["error"] = err.Error()
+					} else {
+						result["outputs"] = outputs
+					}
+				}
+				jsonData, _ = json.Marshal(result)
 
 			default:
 				result["error"] = "Unknown action"
@@ -128,15 +149,43 @@ func handleStatus(c *fiber.Ctx) error {
 	return c.JSON(status)
 }
 
-func getData(index int, uuid string) (interface{}, error) {
+func handleFeedforward(c *fiber.Ctx) error {
+	indexParam := c.Query("index")
+	uuid := c.Query("uuid")
+	inputsParam := c.Query("inputs")
+
+	if indexParam == "" || uuid == "" || inputsParam == "" {
+		return c.Status(fiber.StatusBadRequest).SendString("Index, UUID, and inputs parameters are required")
+	}
+
+	index, err := strconv.Atoi(indexParam)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("Invalid index parameter")
+	}
+
+	var inputs map[string]float64
+	err = json.Unmarshal([]byte(inputsParam), &inputs)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).SendString("Invalid inputs parameter")
+	}
+
+	outputs, err := feedforwardFromDataArray(index, uuid, inputs)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).SendString(err.Error())
+	}
+
+	return c.JSON(outputs)
+}
+
+func getData(index int, uuid string) (NetworkConfig, error) {
 	if index < 0 || index >= len(dataArray) {
-		return nil, fmt.Errorf("invalid index")
+		return NetworkConfig{}, fmt.Errorf("invalid index")
 	}
 
 	dataMap := dataArray[index]
 	value, exists := dataMap[uuid]
 	if !exists {
-		return nil, fmt.Errorf("UUID not found in map")
+		return NetworkConfig{}, fmt.Errorf("UUID not found in map")
 	}
 
 	return value, nil
@@ -154,7 +203,7 @@ func addData(index int, uuid, url string) error {
 	}
 
 	if dataArray[index] == nil {
-		dataArray[index] = make(map[string]interface{})
+		dataArray[index] = make(map[string]NetworkConfig)
 	}
 
 	dataArray[index][uuid] = data
@@ -168,4 +217,12 @@ func getStatus() map[string]int {
 		status["array_"+strconv.Itoa(i)] = len(dataMap)
 	}
 	return status
+}
+
+func feedforwardFromDataArray(index int, uuid string, inputs map[string]float64) (map[string]float64, error) {
+	config, err := getData(index, uuid)
+	if err != nil {
+		return nil, err
+	}
+	return feedforward(&config, inputs), nil
 }
