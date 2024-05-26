@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"runtime"
+	"net"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -39,7 +41,12 @@ func setupRoutes(app *fiber.App) {
 			}
 
 			var result = make(map[string]interface{})
-			result["ip"] = c.RemoteAddr().String()
+
+			remoteAddr := c.RemoteAddr().String()
+			ip, port, _ := net.SplitHostPort(remoteAddr)
+
+			result["ip"] = ip
+			result["port"] = port
 
 			var m map[string]string
 			err = json.Unmarshal(msg, &m)
@@ -94,6 +101,23 @@ func setupRoutes(app *fiber.App) {
 					}
 				}
 				jsonData, _ = json.Marshal(result)
+			
+			case "sysinfo":
+
+				// Get some basic computer specs
+				os := runtime.GOOS
+				arch := runtime.GOARCH
+				numCPU := runtime.NumCPU()
+
+				result["cmd"] = "sysinfo"
+				result["cachePath"] = "ai"
+				result["os"] = os
+				result["arch"] = arch
+				result["numCPU"] = strconv.Itoa(numCPU)
+
+				jsonData, _ := json.Marshal(result)
+
+				c.WriteMessage(websocket.TextMessage, jsonData)
 
 			default:
 				result["error"] = "Unknown action"
