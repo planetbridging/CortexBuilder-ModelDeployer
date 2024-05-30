@@ -4,6 +4,7 @@ services:
     build: .
     ports:
       - "4125:4125"
+      - "12346:12346"
     volumes:
       - .:/app
     environment:

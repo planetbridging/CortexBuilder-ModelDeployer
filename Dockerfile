@@ -15,6 +15,7 @@ COPY . .
 
 # Expose port 4123 to the outside world
 EXPOSE 4125
+EXPOSE 12346
 
 # Command to run the Go application
 CMD ["go", "run", "."]
