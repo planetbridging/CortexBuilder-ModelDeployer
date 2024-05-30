@@ -4,10 +4,10 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net"
-	"time"
 	"log"
+	"net"
 	"runtime"
+	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
@@ -30,6 +30,11 @@ type Hub struct {
 	addClientChan    chan *Client
 	removeClientChan chan string
 	clients          map[string]*Client
+}
+
+type InitializationRequest struct {
+	Path   string `json:"path"`
+	Amount string `json:"amount"`
 }
 
 func NewHub() *Hub {
@@ -91,48 +96,63 @@ func handleConnection(hub *Hub, client *Client, password string) {
 
 		client.LastSeen = time.Now()
 		message := string(buf[:n])
+		var response []byte
 		fmt.Printf("Received data from %s: %s\n", addr, message)
 
-		var response []byte
-		switch message {
-		case "ping":
+		var js map[string]interface{}
+		errCheckJson := json.Unmarshal([]byte(message), &js)
 
-			// Get OS info
-			osInfo := runtime.GOOS
+		if errCheckJson != nil {
+			switch message {
+			case "ping":
 
-			// Get RAM info
-			vmStat, err := mem.VirtualMemory()
-			if err != nil {
-				log.Fatalf("Error getting memory info: %v", err)
-			}
-			ramInfo := fmt.Sprintf("%.2fGB", float64(vmStat.Total)/(1024*1024*1024))
+				// Get OS info
+				osInfo := runtime.GOOS
 
-			// Get CPU info
-			cpuInfo, err := cpu.Info()
-			if err != nil {
-				log.Fatalf("Error getting CPU info: %v", err)
-			}
-			cpuModel := ""
-			if len(cpuInfo) > 0 {
-				cpuModel = fmt.Sprintf("%d cores %s", cpuInfo[0].Cores, cpuInfo[0].ModelName)
-			}
+				// Get RAM info
+				vmStat, err := mem.VirtualMemory()
+				if err != nil {
+					log.Fatalf("Error getting memory info: %v", err)
+				}
+				ramInfo := fmt.Sprintf("%.2fGB", float64(vmStat.Total)/(1024*1024*1024))
 
-			serverInfo := ServerInfo{
-				OS:           osInfo,
-				RAM:          ramInfo,
-				CPU:          cpuModel,
-				ComputerType: "ai",
+				// Get CPU info
+				cpuInfo, err := cpu.Info()
+				if err != nil {
+					log.Fatalf("Error getting CPU info: %v", err)
+				}
+				cpuModel := ""
+				if len(cpuInfo) > 0 {
+					cpuModel = fmt.Sprintf("%d cores %s", cpuInfo[0].Cores, cpuInfo[0].ModelName)
+				}
+
+				serverInfo := ServerInfo{
+					OS:           osInfo,
+					RAM:          ramInfo,
+					CPU:          cpuModel,
+					ComputerType: "ai",
+				}
+				response, err = json.Marshal(serverInfo)
+				if err != nil {
+					fmt.Printf("Error marshaling JSON: %v\n", err)
+					return
+				}
+				client.Conn.Write(response)
+
+			default:
+				response = []byte(`{"error": "unknown command"}`)
 			}
-			response, err = json.Marshal(serverInfo)
-			if err != nil {
-				fmt.Printf("Error marshaling JSON: %v\n", err)
-				return
-			}
-		default:
-			response = []byte(`{"error": "unknown command"}`)
+		} else {
+			fmt.Println("This is a JSON string")
 		}
 
-		client.Conn.Write(response)
+		/*var responseData InitializationRequest
+		err := json.Unmarshal([]byte(msg.Data), &responseData)
+		if err != nil {
+			log.Println("json unmarshal data:", err)
+			break
+		}*/
+
 	}
 }
 
