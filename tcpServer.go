@@ -101,6 +101,7 @@ func handleConnection(hub *Hub, client *Client, password string) {
 
 		var js map[string]interface{}
 		errCheckJson := json.Unmarshal([]byte(message), &js)
+		fmt.Println(js)
 
 		if errCheckJson != nil {
 			switch message {
