@@ -144,7 +144,16 @@ func handleConnection(hub *Hub, client *Client, password string) {
 				response = []byte(`{"error": "unknown command"}`)
 			}
 		} else {
-			fmt.Println("This is a JSON string")
+			if value, ok := js["type"]; ok {
+				fmt.Println("Key exists, value: ", value)
+				switch js["type"]{
+				case "initializationPopulation":
+					initializationPopulation(js)
+					break
+				}
+			} else {
+				fmt.Println("Key does not exist")
+			}
 		}
 
 		/*var responseData InitializationRequest
