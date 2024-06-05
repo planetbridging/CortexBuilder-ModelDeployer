@@ -127,12 +127,19 @@ func handleConnection(hub *Hub, client *Client, password string) {
 					cpuModel = fmt.Sprintf("%d cores %s", cpuInfo[0].Cores, cpuInfo[0].ModelName)
 				}
 
-				serverInfo := ServerInfo{
+				/*serverInfo := ServerInfo{
 					OS:           osInfo,
 					RAM:          ramInfo,
 					CPU:          cpuModel,
 					ComputerType: "ai",
-				}
+				}*/
+				serverInfo := make(map[string]interface{})
+				serverInfo["OS"] = osInfo
+				serverInfo["RAM"] = ramInfo
+				serverInfo["CPU"] = cpuModel
+				serverInfo["ComputerType"] = "ai"
+				serverInfo["type"] = "serverInfo"
+
 				response, err = json.Marshal(serverInfo)
 				if err != nil {
 					fmt.Printf("Error marshaling JSON: %v\n", err)
@@ -146,7 +153,7 @@ func handleConnection(hub *Hub, client *Client, password string) {
 		} else {
 			if value, ok := js["type"]; ok {
 				fmt.Println("Key exists, value: ", value)
-				switch js["type"]{
+				switch js["type"] {
 				case "initializationPopulation":
 					initializationPopulation(js)
 					break
