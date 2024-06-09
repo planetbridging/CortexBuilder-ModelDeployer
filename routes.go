@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"runtime"
+	"io/ioutil"
 	"net"
+	"net/http"
+	"runtime"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -101,7 +103,7 @@ func setupRoutes(app *fiber.App) {
 					}
 				}
 				jsonData, _ = json.Marshal(result)
-			
+
 			case "sysinfo":
 
 				// Get some basic computer specs
@@ -249,4 +251,34 @@ func feedforwardFromDataArray(index int, uuid string, inputs map[string]float64)
 		return nil, err
 	}
 	return feedforward(&config, inputs), nil
+}
+
+func getRequest(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
+}
+
+func parseJSONFromURL(url string) (map[string]interface{}, error) {
+	configJ, err := getRequest(url)
+	if err != nil {
+		return nil, fmt.Errorf("Error fetching data: %w", err)
+	}
+
+	var result map[string]interface{}
+	err = json.Unmarshal(configJ, &result)
+	if err != nil {
+		return nil, fmt.Errorf("Error decoding JSON: %w", err)
+	}
+
+	return result, nil
 }

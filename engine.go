@@ -1,10 +1,11 @@
 package main
 
 import (
-	"fmt"
-	"os"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
@@ -12,7 +13,7 @@ import (
 
 var dataArray []map[string]NetworkConfig
 var envPWD string
-
+var envSavedDataCache string
 
 func main() {
 	err := godotenv.Load()
@@ -26,13 +27,15 @@ func main() {
 		envPort = "4125"
 	}
 
+	testingEval()
+
 	app := fiber.New()
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*", // Allows all domains
-		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
-		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
-		ExposeHeaders: "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type",
+		AllowOrigins:     "*", // Allows all domains
+		AllowMethods:     "GET,POST,PUT,DELETE,OPTIONS",
+		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		ExposeHeaders:    "Content-Length, Access-Control-Allow-Origin, Access-Control-Allow-Headers, Cache-Control, Content-Language, Content-Type",
 		AllowCredentials: false,
 	}))
 
