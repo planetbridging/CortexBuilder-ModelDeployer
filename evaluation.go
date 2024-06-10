@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -103,10 +104,15 @@ func testingEval() {
 						rowCount, ok := config["rowCount"].(float64)
 						if ok && okCols {
 							inputCount := 0
+							outputCount := 0
 							for _, col := range cols {
 								colStr, ok := col.(string)
 								if ok && strings.HasPrefix(colStr, "input") {
 									inputCount++
+								}
+
+								if ok && strings.HasPrefix(colStr, "output") {
+									outputCount++
 								}
 							}
 							fmt.Println("Number of variables starting with 'input':", inputCount)
@@ -119,19 +125,11 @@ func testingEval() {
 							fmt.Printf("Training rows: %d, Prediction rows: %d\n", trainingRows, predictionRows)
 
 							start := time.Now()
-							for i := 0; i <= int(rowCount)-1; i++ {
-								urlRow := "http://" + envSavedDataCachePort + "/row/?path=" + config["path"].(string) + "&index=" + strconv.Itoa(i)
-								fmt.Println(urlRow)
-								//http://192.168.0.228:4123/row/?path=./host/data.csv&index=0
-								dataMountedRow, _ := parseJSONFromURL("http://" + envSavedDataCachePort + "/row/?path=" + config["path"].(string) + "&index=" + strconv.Itoa(i))
-								dataMountedRowArray, okCheckRow := dataMountedRow.([]string)
-								fmt.Println(dataMountedRowArray)
-								if !okCheckRow {
-									fmt.Println("Error: project items data is not an array of objects")
-									return
-								}
-								break
-							}
+							errorFloat, accFloat := multiThreadedFullData(envSavedDataCachePort, config["path"].(string), int(rowCount), inputCount, outputCount, &nnConfig)
+
+							fmt.Printf("Mean Absolute Percentage Error: %f%%\n", errorFloat)
+							fmt.Printf("Accuracy: %f%%\n", accFloat)
+
 							elapsed := time.Since(start)
 
 							fmt.Printf("The section of code took with http %s to execute.\n", elapsed)
@@ -140,23 +138,144 @@ func testingEval() {
 						}
 					}
 
-					// Define some input values
-					inputValues := map[string]float64{
-						"1": 0.5,
-						"2": 0.6,
-						"3": 0.7,
-					}
-
-					// Feed the input values into the neural network
-					outputs := feedforward(&nnConfig, inputValues)
-
-					// Print the outputs
-					fmt.Println(outputs)
 				}
 				break
 			}
 		}
 	}
+}
+
+func singleThreadedFullData(envSavedDataCachePort string, configPath string, rowCount int, inputCount int, outputCount int, nnConfig *NetworkConfig) {
+	fmt.Println(inputCount, outputCount)
+
+	var totalPercentageDifference float64 = 0
+
+	for i := 0; i <= rowCount-1; i++ {
+		urlRow := "http://" + envSavedDataCachePort + "/row/?path=" + configPath + "&index=" + strconv.Itoa(i)
+		fmt.Println(urlRow)
+		//http://192.168.0.228:4123/row/?path=./host/data.csv&index=0
+		dataMountedRow, _ := parseJSONFromURL("http://" + envSavedDataCachePort + "/row/?path=" + configPath + "&index=" + strconv.Itoa(i))
+		dataMountedRowArray, okCheckRow := dataMountedRow.([]string)
+
+		inputValues := map[string]float64{}
+
+		for inVal := 0; inVal <= inputCount-1; inVal++ {
+			strVal := strconv.Itoa(inVal + 1)
+			floatVal, err := strconv.ParseFloat(dataMountedRowArray[inVal], 64)
+			if err != nil {
+				fmt.Println("Error parsing float:", err)
+				return
+			}
+			inputValues[strVal] = floatVal
+		}
+
+		fmt.Println(dataMountedRowArray)
+		if !okCheckRow {
+			fmt.Println("Error: project items data is not an array of objects")
+			return
+		}
+
+		// Feed the input values into the neural network
+		outputs := feedforward(nnConfig, inputValues)
+
+		// Print the outputs
+		fmt.Println(outputs)
+
+		// Compare the outputs to the actual values
+		for outVal := inputCount; outVal < inputCount+outputCount; outVal++ {
+			actualVal, err := strconv.ParseFloat(dataMountedRowArray[outVal], 64)
+			if err != nil {
+				fmt.Println("Error parsing float:", err)
+				return
+			}
+			predictedVal := outputs[strconv.Itoa(outVal+1)]
+			percentageDifference := math.Abs(actualVal-predictedVal) / actualVal
+			totalPercentageDifference += percentageDifference
+		}
+
+		//break
+	}
+
+	// Calculate and print the Mean Absolute Percentage Error (MAPE)
+	mape := totalPercentageDifference / float64(rowCount*outputCount) * 100
+	fmt.Printf("Mean Absolute Percentage Error: %f%%\n", mape)
+
+	// Calculate and print the accuracy as a percentage
+	accuracy := 100 - mape
+	fmt.Printf("Accuracy: %f%%\n", accuracy)
+}
+
+func multiThreadedFullData(envSavedDataCachePort string, configPath string, rowCount int, inputCount int, outputCount int, nnConfig *NetworkConfig) (float64, float64) {
+	//fmt.Println(inputCount, outputCount)
+
+	var totalPercentageDifference float64
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for i := 0; i <= rowCount-1; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+
+			urlRow := "http://" + envSavedDataCachePort + "/row/?path=" + configPath + "&index=" + strconv.Itoa(i)
+			fmt.Println(urlRow)
+			dataMountedRow, _ := parseJSONFromURL("http://" + envSavedDataCachePort + "/row/?path=" + configPath + "&index=" + strconv.Itoa(i))
+			dataMountedRowArray, okCheckRow := dataMountedRow.([]string)
+
+			inputValues := map[string]float64{}
+
+			for inVal := 0; inVal <= inputCount-1; inVal++ {
+				strVal := strconv.Itoa(inVal + 1)
+				floatVal, err := strconv.ParseFloat(dataMountedRowArray[inVal], 64)
+				if err != nil {
+					fmt.Println("Error parsing float:", err)
+					return
+				}
+				inputValues[strVal] = floatVal
+			}
+
+			fmt.Println(dataMountedRowArray)
+			if !okCheckRow {
+				fmt.Println("Error: project items data is not an array of objects")
+				return
+			}
+
+			// Feed the input values into the neural network
+			outputs := feedforward(nnConfig, inputValues)
+
+			// Print the outputs
+			fmt.Println(outputs)
+
+			// Compare the outputs to the actual values
+			var rowPercentageDifference float64
+			for outVal := inputCount; outVal < inputCount+outputCount; outVal++ {
+				actualVal, err := strconv.ParseFloat(dataMountedRowArray[outVal], 64)
+				if err != nil {
+					fmt.Println("Error parsing float:", err)
+					return
+				}
+				predictedVal := outputs[strconv.Itoa(outVal+1)]
+				percentageDifference := math.Abs(actualVal-predictedVal) / actualVal
+				rowPercentageDifference += percentageDifference
+			}
+
+			mu.Lock()
+			totalPercentageDifference += rowPercentageDifference
+			mu.Unlock()
+		}(i)
+	}
+
+	wg.Wait()
+
+	// Calculate and print the Mean Absolute Percentage Error (MAPE)
+	mape := totalPercentageDifference / float64(rowCount*outputCount) * 100
+	//fmt.Printf("Mean Absolute Percentage Error: %f%%\n", mape)
+
+	// Calculate and print the accuracy as a percentage
+	accuracy := 100 - mape
+	//fmt.Printf("Accuracy: %f%%\n", accuracy)
+
+	return mape, accuracy
 }
 
 func loopThroughData(dataPath string, rowCount int) {
