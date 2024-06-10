@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"math"
+	"net"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func testingEval() {
@@ -106,6 +110,15 @@ func testingEval() {
 								}
 							}
 							fmt.Println("Number of variables starting with 'input':", inputCount)
+
+							trainingPercent := 70.0
+							predictionPercent := 30.0
+							totalRows := int(rowCount)
+
+							trainingRows, predictionRows := calculateRows(trainingPercent, predictionPercent, totalRows)
+							fmt.Printf("Training rows: %d, Prediction rows: %d\n", trainingRows, predictionRows)
+
+							start := time.Now()
 							for i := 0; i <= int(rowCount)-1; i++ {
 								urlRow := "http://" + envSavedDataCachePort + "/row/?path=" + config["path"].(string) + "&index=" + strconv.Itoa(i)
 								fmt.Println(urlRow)
@@ -117,7 +130,13 @@ func testingEval() {
 									fmt.Println("Error: project items data is not an array of objects")
 									return
 								}
+								break
 							}
+							elapsed := time.Since(start)
+
+							fmt.Printf("The section of code took with http %s to execute.\n", elapsed)
+							fmt.Println("ROW COUNT:", rowCount)
+							//loopThroughData(config["path"].(string), int(rowCount))
 						}
 					}
 
@@ -138,4 +157,38 @@ func testingEval() {
 			}
 		}
 	}
+}
+
+func loopThroughData(dataPath string, rowCount int) {
+
+	conn, err := net.Dial("tcp", "192.168.0.228:8923")
+	if err != nil {
+		panic(err)
+	}
+	defer conn.Close()
+
+	start := time.Now()
+	for i := 0; i < rowCount-1; i++ {
+		request := fmt.Sprintf("%s %d", dataPath, i)
+		fmt.Fprintf(conn, "%s\n", request)
+
+		message, _ := bufio.NewReader(conn).ReadString('\n')
+		fmt.Print("Received from server: " + message)
+	}
+
+	elapsed := time.Since(start)
+
+	fmt.Printf("The section of code took direct tcp %s to execute.\n", elapsed)
+}
+
+func calculateRows(trainingPercent float64, predictionPercent float64, totalRows int) (int, int) {
+	trainingRows := int(math.Ceil(trainingPercent / 100 * float64(totalRows)))
+	predictionRows := int(math.Ceil(predictionPercent / 100 * float64(totalRows)))
+
+	// Adjust if the sum of trainingRows and predictionRows is greater than totalRows
+	if trainingRows+predictionRows > totalRows {
+		predictionRows = totalRows - trainingRows
+	}
+
+	return trainingRows, predictionRows
 }
