@@ -125,14 +125,21 @@ func testingEval() {
 							fmt.Printf("Training rows: %d, Prediction rows: %d\n", trainingRows, predictionRows)
 
 							start := time.Now()
-							errorFloat, accFloat := multiThreadedFullData(envSavedDataCachePort, config["path"].(string), int(rowCount), inputCount, outputCount, &nnConfig)
+							errorFloat, accFloat := multiThreadedFullData(0, envSavedDataCachePort, config["path"].(string), trainingRows, inputCount, outputCount, &nnConfig)
 
-							fmt.Printf("Mean Absolute Percentage Error: %f%%\n", errorFloat)
-							fmt.Printf("Accuracy: %f%%\n", accFloat)
-
+							fmt.Printf("Training Data Mean Absolute Percentage Error: %f%%\n", errorFloat)
+							fmt.Printf("Training Data Accuracy: %f%%\n", accFloat)
 							elapsed := time.Since(start)
-
 							fmt.Printf("The section of code took with http %s to execute.\n", elapsed)
+
+							start = time.Now()
+							errorFloatPred, accFloatPred := multiThreadedFullData(int(rowCount)-predictionRows, envSavedDataCachePort, config["path"].(string), int(rowCount), inputCount, outputCount, &nnConfig)
+
+							fmt.Printf("Prediction Data Mean Absolute Percentage Error: %f%%\n", errorFloatPred)
+							fmt.Printf("Prediction Data Accuracy: %f%%\n", accFloatPred)
+							elapsed = time.Since(start)
+							fmt.Printf("The section of code took with http %s to execute.\n", elapsed)
+
 							fmt.Println("ROW COUNT:", rowCount)
 							//loopThroughData(config["path"].(string), int(rowCount))
 						}
@@ -205,20 +212,21 @@ func singleThreadedFullData(envSavedDataCachePort string, configPath string, row
 	fmt.Printf("Accuracy: %f%%\n", accuracy)
 }
 
-func multiThreadedFullData(envSavedDataCachePort string, configPath string, rowCount int, inputCount int, outputCount int, nnConfig *NetworkConfig) (float64, float64) {
+func multiThreadedFullData(startingRow int, envSavedDataCachePort string, configPath string, rowCount int, inputCount int, outputCount int, nnConfig *NetworkConfig) (float64, float64) {
 	//fmt.Println(inputCount, outputCount)
 
 	var totalPercentageDifference float64
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-
-	for i := 0; i <= rowCount-1; i++ {
+	var totalRows int // New variable to keep track of the number of rows processed
+	fmt.Println(startingRow, rowCount)
+	for i := startingRow; i <= rowCount-1; i++ {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
 
-			urlRow := "http://" + envSavedDataCachePort + "/row/?path=" + configPath + "&index=" + strconv.Itoa(i)
-			fmt.Println(urlRow)
+			//urlRow := "http://" + envSavedDataCachePort + "/row/?path=" + configPath + "&index=" + strconv.Itoa(i)
+			//fmt.Println(urlRow)
 			dataMountedRow, _ := parseJSONFromURL("http://" + envSavedDataCachePort + "/row/?path=" + configPath + "&index=" + strconv.Itoa(i))
 			dataMountedRowArray, okCheckRow := dataMountedRow.([]string)
 
@@ -234,7 +242,7 @@ func multiThreadedFullData(envSavedDataCachePort string, configPath string, rowC
 				inputValues[strVal] = floatVal
 			}
 
-			fmt.Println(dataMountedRowArray)
+			//fmt.Println(dataMountedRowArray)
 			if !okCheckRow {
 				fmt.Println("Error: project items data is not an array of objects")
 				return
@@ -244,7 +252,7 @@ func multiThreadedFullData(envSavedDataCachePort string, configPath string, rowC
 			outputs := feedforward(nnConfig, inputValues)
 
 			// Print the outputs
-			fmt.Println(outputs)
+			//fmt.Println(outputs)
 
 			// Compare the outputs to the actual values
 			var rowPercentageDifference float64
@@ -261,6 +269,7 @@ func multiThreadedFullData(envSavedDataCachePort string, configPath string, rowC
 
 			mu.Lock()
 			totalPercentageDifference += rowPercentageDifference
+			totalRows++ // Increment the total number of rows processed
 			mu.Unlock()
 		}(i)
 	}
@@ -268,8 +277,15 @@ func multiThreadedFullData(envSavedDataCachePort string, configPath string, rowC
 	wg.Wait()
 
 	// Calculate and print the Mean Absolute Percentage Error (MAPE)
-	mape := totalPercentageDifference / float64(rowCount*outputCount) * 100
+	//mape := totalPercentageDifference / float64(rowCount*outputCount) * 100
 	//fmt.Printf("Mean Absolute Percentage Error: %f%%\n", mape)
+
+	var mape float64
+	if startingRow == 0 { // If it's the training phase
+		mape = totalPercentageDifference / float64(rowCount*outputCount) * 100
+	} else { // If it's the prediction phase
+		mape = totalPercentageDifference / float64(totalRows*outputCount) * 100
+	}
 
 	// Calculate and print the accuracy as a percentage
 	accuracy := 100 - mape
