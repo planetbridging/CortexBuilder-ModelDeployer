@@ -268,7 +268,7 @@ func getRequest(url string) ([]byte, error) {
 	return body, nil
 }
 
-func parseJSONFromURL(url string) (map[string]interface{}, error) {
+func parseJSONFromURL(url string) (interface{}, error) {
 	configJ, err := getRequest(url)
 	if err != nil {
 		return nil, fmt.Errorf("Error fetching data: %w", err)
@@ -276,9 +276,21 @@ func parseJSONFromURL(url string) (map[string]interface{}, error) {
 
 	var result map[string]interface{}
 	err = json.Unmarshal(configJ, &result)
-	if err != nil {
-		return nil, fmt.Errorf("Error decoding JSON: %w", err)
+	if err == nil {
+		return result, nil
 	}
 
-	return result, nil
+	var results []map[string]interface{}
+	err = json.Unmarshal(configJ, &results)
+	if err == nil {
+		return results, nil
+	}
+
+	var stringResults []string
+	err = json.Unmarshal(configJ, &stringResults)
+	if err == nil {
+		return stringResults, nil
+	}
+
+	return nil, fmt.Errorf("Error decoding JSON: %w", err)
 }
