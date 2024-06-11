@@ -157,6 +157,25 @@ func handleConnection(hub *Hub, client *Client, password string) {
 				case "initializationPopulation":
 					initializationPopulation(js)
 					break
+				case "startEval":
+					fmt.Println("--------------starting eval-----------------------")
+					fmt.Println(js)
+					startEval(js)
+					// Get some basic computer specs
+					/*os := runtime.GOOS
+					arch := runtime.GOARCH
+					numCPU := runtime.NumCPU()
+
+					result["cmd"] = "sysinfo"
+					result["cachePath"] = "ai"
+					result["os"] = os
+					result["arch"] = arch
+					result["numCPU"] = strconv.Itoa(numCPU)
+
+					jsonData, _ := json.Marshal(result)
+
+					c.WriteMessage(websocket.TextMessage, jsonData)*/
+					break
 				}
 			} else {
 				fmt.Println("Key does not exist")

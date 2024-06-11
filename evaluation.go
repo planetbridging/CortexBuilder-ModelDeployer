@@ -327,3 +327,38 @@ func calculateRows(trainingPercent float64, predictionPercent float64, totalRows
 
 	return trainingRows, predictionRows
 }
+
+func startEval(js map[string]interface{}) {
+
+	selectedComputer, sCOk := js["selectedComputer"].(string)
+	clientID, cIOk := js["clientID"].(string)
+	aiPod, aPOk := js["aiPod"].(string)
+	selectedDataPath, sdpOk := js["selectedDataPath"].(string)
+	selectedProject, spOk := js["selectedProject"].(string)
+	testing, testOk := js["testing"].(int)
+	training, trainOk := js["training"].(int)
+
+	//selectedProject:/path/testing
+
+	if sCOk && cIOk && aPOk && sdpOk && spOk && testOk && trainOk {
+		selectedComputerDataCache := selectedComputer + ":4123"
+
+		dataConfigInterface, _ := parseJSONFromURL("http://" + selectedComputerDataCache + "/files/config.json")
+		dataConfig, okDataConfig := dataConfigInterface.(map[string]interface{})
+
+		dataMounted, _ := parseJSONFromURL("http://" + selectedComputerDataCache + "/mounted")
+		dataMountedConfig, dataMountedConfigOk := dataMounted.([]map[string]interface{})
+
+		if okDataConfig && dataMountedConfigOk {
+			fmt.Println(dataConfig)
+			fmt.Println(dataMountedConfig)
+		}
+	}
+
+	fmt.Println(clientID)
+	fmt.Println(aiPod)
+	fmt.Println(selectedDataPath)
+	fmt.Println(selectedProject)
+	fmt.Println(testing)
+	fmt.Println(training)
+}
