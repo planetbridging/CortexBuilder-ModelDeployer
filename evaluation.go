@@ -335,8 +335,8 @@ func startEval(js map[string]interface{}) {
 	aiPod, aPOk := js["aiPod"].(string)
 	selectedDataPath, sdpOk := js["selectedDataPath"].(string)
 	selectedProject, spOk := js["selectedProject"].(string)
-	testing, testOk := js["testing"].(int)
-	training, trainOk := js["training"].(int)
+	testing, testOk := js["testing"].(float64)
+	training, trainOk := js["training"].(float64)
 
 	//selectedProject:/path/testing
 
@@ -352,13 +352,30 @@ func startEval(js map[string]interface{}) {
 		if okDataConfig && dataMountedConfigOk {
 			fmt.Println(dataConfig)
 			fmt.Println(dataMountedConfig)
+
+			dataProjectItemsInterface, err := parseJSONFromURL("http://" + selectedComputerDataCache + selectedProject)
+			//fmt.Println("http://" + selectedComputerDataCache + selectedProject)
+			if err != nil {
+				fmt.Println("Error fetching data:", err)
+			} else {
+				dataProjectItems, dataProjectItemsOk := dataProjectItemsInterface.([]map[string]interface{})
+				if dataProjectItemsOk {
+					fmt.Println(dataProjectItems)
+				} else {
+					fmt.Println("Failed to get folders in project")
+				}
+			}
+
 		}
+	} else {
+		fmt.Println("Failed to extract information from json")
 	}
 
-	fmt.Println(clientID)
-	fmt.Println(aiPod)
-	fmt.Println(selectedDataPath)
-	fmt.Println(selectedProject)
-	fmt.Println(testing)
-	fmt.Println(training)
+	fmt.Println(selectedComputer, sCOk)
+	fmt.Println(clientID, cIOk)
+	fmt.Println(aiPod, aPOk)
+	fmt.Println(selectedDataPath, sdpOk)
+	fmt.Println(selectedProject, spOk)
+	fmt.Println(testing, testOk)
+	fmt.Println(training, trainOk)
 }
