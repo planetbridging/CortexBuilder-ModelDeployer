@@ -480,12 +480,31 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 
 									fmt.Println("ROW COUNT:", rowCount)
 									//loopThroughData(config["path"].(string), int(rowCount))
+
+									// Prepare the data for the POST request
+									postData := map[string]interface{}{
+										"Training_Data_Mean_Absolute_Percentage_Error":   errorFloat,
+										"Training_Data_Accuracy":                         accFloat,
+										"Training_Time":                                  elapsed.String(),
+										"Prediction_Data_Mean_Absolute_Percentage_Error": errorFloatPred,
+										"Prediction_Data_Accuracy":                       accFloatPred,
+										"Prediction_Time":                                elapsed.String(),
+									}
+
+									saveEvalLocation := selectedProject + "/eval_" + folder + "/" + itemFolderName
+									if strings.HasPrefix(saveEvalLocation, "/path/") {
+										saveEvalLocation = strings.TrimPrefix(saveEvalLocation, "/path/")
+									}
+									fmt.Println(saveEvalLocation)
+									// Convert postData to JSON
+									saveDataToFile(saveEvalLocation, selectedComputerDataCache, postData)
+
 								}
 							}
 						}
 					}
 
-					break
+					//break
 
 					// Print the progress
 					fmt.Printf("Processing item %d of %d\n", i+1, len(lstFolderItems))
@@ -539,4 +558,27 @@ func getUniqueNames(data []map[string]interface{}) map[string]bool {
 		}
 	}
 	return uniqueNames
+}
+
+func saveDataToFile(cleanPath, newPath string, postData map[string]interface{}) {
+	postDataJSON, err := json.Marshal(postData)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	// Save the JSON data to a file
+	fileCreatePath := "http://" + newPath + "/createfile"
+	postDataCreateFile := map[string]interface{}{
+		"Path": cleanPath,
+		"Data": string(postDataJSON),
+	}
+
+	resCreateFile, err := sendPostRequest(fileCreatePath, postDataCreateFile)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		// Print the response
+		fmt.Println(resCreateFile)
+	}
 }
