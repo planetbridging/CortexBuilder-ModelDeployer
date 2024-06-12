@@ -475,10 +475,10 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 
 									fmt.Printf("Prediction Data Mean Absolute Percentage Error: %f%%\n", errorFloatPred)
 									fmt.Printf("Prediction Data Accuracy: %f%%\n", accFloatPred)
-									elapsed = time.Since(start)
-									fmt.Printf("The section of code took with http %s to execute.\n", elapsed)
+									elapsedPred := time.Since(start)
+									fmt.Printf("The section of code took with http %s to execute.\n", elapsedPred)
 
-									fmt.Println("ROW COUNT:", rowCount)
+									//fmt.Println("ROW COUNT:", rowCount)
 									//loopThroughData(config["path"].(string), int(rowCount))
 
 									// Prepare the data for the POST request
@@ -488,7 +488,7 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 										"Training_Time":                                  elapsed.String(),
 										"Prediction_Data_Mean_Absolute_Percentage_Error": errorFloatPred,
 										"Prediction_Data_Accuracy":                       accFloatPred,
-										"Prediction_Time":                                elapsed.String(),
+										"Prediction_Time":                                elapsedPred.String(),
 									}
 
 									saveEvalLocation := selectedProject + "/eval_" + folder + "/" + itemFolderName
@@ -499,6 +499,21 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 									// Convert postData to JSON
 									saveDataToFile(saveEvalLocation, selectedComputerDataCache, postData)
 
+									data := map[string]interface{}{
+										"type":    "evalStatusUpdate",
+										"current": i + 1,               // replace with your actual current progress
+										"total":   len(lstFolderItems), // replace with your actual total number of models
+									}
+
+									/*jsonData, err := json.Marshal(data)
+									if err != nil {
+										fmt.Println(err)
+									} else {
+										hub.Broadcast(jsonData)
+									}*/
+
+									BroadcastJsonToClients(data)
+
 								}
 							}
 						}
@@ -508,6 +523,7 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 
 					// Print the progress
 					fmt.Printf("Processing item %d of %d\n", i+1, len(lstFolderItems))
+
 				}
 			}
 

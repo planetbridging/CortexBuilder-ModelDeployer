@@ -37,6 +37,9 @@ type InitializationRequest struct {
 	Amount string `json:"amount"`
 }
 
+// Declare hub as a global variable
+var hub *Hub
+
 func NewHub() *Hub {
 	return &Hub{
 		addClientChan:    make(chan *Client),
@@ -58,6 +61,18 @@ func (h *Hub) Run() {
 	}
 }
 
+func (h *Hub) Broadcast(msg []byte) {
+	for addr, client := range h.clients {
+		_, err := client.Conn.Write(msg)
+		if err != nil {
+			fmt.Printf("Error broadcasting to client %s: %v\n", addr, err)
+			h.RemoveClient(addr)
+		} else {
+			fmt.Println("msg sent to: ", client.Addr)
+		}
+	}
+}
+
 func (h *Hub) AddClient(client *Client) {
 	h.addClientChan <- client
 }
@@ -66,7 +81,7 @@ func (h *Hub) RemoveClient(addr string) {
 	h.removeClientChan <- addr
 }
 
-func handleConnection(hub *Hub, client *Client, password string) {
+func handleConnection(client *Client, password string) {
 	defer client.Conn.Close()
 
 	// Authentication
@@ -84,6 +99,7 @@ func handleConnection(hub *Hub, client *Client, password string) {
 	}
 
 	client.Conn.Write([]byte("Authenticated"))
+	hub.AddClient(client) // Add the client to the hub.clients map
 
 	addr := client.Conn.RemoteAddr().String()
 
@@ -161,6 +177,22 @@ func handleConnection(hub *Hub, client *Client, password string) {
 					fmt.Println("--------------starting eval-----------------------")
 					fmt.Println(js)
 					startEval(js)
+
+					serverInfo := make(map[string]interface{})
+					serverInfo["ffs"] = "osInfo"
+
+					response, err = json.Marshal(serverInfo)
+					if err != nil {
+						fmt.Printf("Error marshaling JSON: %v\n", err)
+						return
+					}
+
+					data := map[string]interface{}{
+						"type":   "evalStatusUpdate",
+						"bugger": "hello",
+					}
+
+					BroadcastJsonToClients(data)
 					// Get some basic computer specs
 					/*os := runtime.GOOS
 					arch := runtime.GOARCH
@@ -193,7 +225,7 @@ func handleConnection(hub *Hub, client *Client, password string) {
 }
 
 func startTcpServer(password string) {
-	hub := NewHub()
+	hub = NewHub()
 	go hub.Run()
 
 	tlsConfig, err := generateTLSConfig()
@@ -222,6 +254,27 @@ func startTcpServer(password string) {
 			Conn: conn,
 			Addr: conn.RemoteAddr().String(),
 		}
-		go handleConnection(hub, client, password)
+		go handleConnection(client, password)
+	}
+}
+
+func BroadcastJsonToClients(msg map[string]interface{}) {
+	// Marshal the message into JSON
+	jsonData, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Error marshaling message: %v\n", err)
+		return
+	}
+
+	fmt.Println("clients connected?", len(hub.clients))
+	// Loop through all connected clients and send the message
+	for addr, client := range hub.clients {
+		_, err := client.Conn.Write(jsonData)
+		if err != nil {
+			log.Printf("Error broadcasting to client %s: %v\n", addr, err)
+			hub.RemoveClient(addr)
+		} else {
+			log.Printf("Message sent to client %s\n", addr)
+		}
 	}
 }
