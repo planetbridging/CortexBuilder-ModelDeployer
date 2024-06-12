@@ -361,6 +361,10 @@ func startEval(js map[string]interface{}) {
 				dataProjectItems, dataProjectItemsOk := dataProjectItemsInterface.([]map[string]interface{})
 				if dataProjectItemsOk {
 					fmt.Println(dataProjectItems)
+
+					nonEvalFolders, evalFolders := getEvalFolders(dataProjectItems)
+					processEval(nonEvalFolders, evalFolders, selectedComputerDataCache, selectedProject, dataMountedConfig, training, testing)
+
 				} else {
 					fmt.Println("Failed to get folders in project")
 				}
@@ -378,4 +382,161 @@ func startEval(js map[string]interface{}) {
 	fmt.Println(selectedProject, spOk)
 	fmt.Println(testing, testOk)
 	fmt.Println(training, trainOk)
+}
+
+func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, selectedComputerDataCache string, selectedProject string, dataMountedConfig []map[string]interface{}, trainingPercent float64, predictionPercent float64) {
+	for folder := range nonEvalFolders {
+		newFolderItems, err := parseJSONFromURL("http://" + selectedComputerDataCache + selectedProject + "/" + folder)
+
+		createFolder(selectedProject, "eval_"+folder, selectedComputerDataCache)
+
+		newFolderItemsEval, errEval := parseJSONFromURL("http://" + selectedComputerDataCache + selectedProject + "/eval_" + folder)
+		lstUniqEvalFiles := make(map[string]bool)
+		if errEval != nil {
+			fmt.Println(errEval)
+		} else {
+			fmt.Println(newFolderItemsEval)
+			items, ok := newFolderItemsEval.([]map[string]interface{})
+			if !ok {
+				fmt.Println("Error: newFolderItemsEval is not of type []map[string]interface{}")
+			} else {
+				lstUniqEvalFiles = getUniqueNames(items)
+			}
+		}
+
+		if err != nil {
+			fmt.Println("Error fetching data:", err)
+		} else {
+			lstFolderItems, lstFolderItemsOk := newFolderItems.([]map[string]interface{})
+			if lstFolderItemsOk {
+				for i, item := range lstFolderItems {
+					itemFolderName, itemFolderNameOk := item["name"].(string)
+					fmt.Println("-------------------", itemFolderName)
+
+					if _, ok := lstUniqEvalFiles[itemFolderName]; ok {
+						// "yourKey" exists in the map
+					} else {
+						if itemFolderNameOk {
+							itemURL := "http://" + selectedComputerDataCache + strings.Replace(selectedProject, "/path/", "/files/", 1) + "/" + folder + "/" + itemFolderName
+							fmt.Println(item)
+							fmt.Println(itemURL)
+
+							// Fetch the neural network configuration
+							nnConfigJSON, err := getRequest(itemURL)
+							if err != nil {
+								fmt.Println("Error fetching data:", err)
+								return
+							}
+
+							// Unmarshal the JSON into a NetworkConfig struct
+							var nnConfig NetworkConfig
+							err = json.Unmarshal(nnConfigJSON, &nnConfig)
+							if err != nil {
+								fmt.Println("Error decoding JSON:", err)
+								return
+							}
+
+							// Loop through dataMountedConfig
+							for _, config := range dataMountedConfig {
+
+								cols, okCols := config["cols"].([]interface{})
+
+								rowCount, ok := config["rowCount"].(float64)
+								if ok && okCols {
+									inputCount := 0
+									outputCount := 0
+									for _, col := range cols {
+										colStr, ok := col.(string)
+										if ok && strings.HasPrefix(colStr, "input") {
+											inputCount++
+										}
+
+										if ok && strings.HasPrefix(colStr, "output") {
+											outputCount++
+										}
+									}
+									fmt.Println("Number of variables starting with 'input':", inputCount)
+
+									totalRows := int(rowCount)
+
+									trainingRows, predictionRows := calculateRows(trainingPercent, predictionPercent, totalRows)
+									fmt.Printf("Training rows: %d, Prediction rows: %d\n", trainingRows, predictionRows)
+
+									start := time.Now()
+									errorFloat, accFloat := multiThreadedFullData(0, selectedComputerDataCache, config["path"].(string), trainingRows, inputCount, outputCount, &nnConfig)
+
+									fmt.Printf("Training Data Mean Absolute Percentage Error: %f%%\n", errorFloat)
+									fmt.Printf("Training Data Accuracy: %f%%\n", accFloat)
+									elapsed := time.Since(start)
+									fmt.Printf("The section of code took with http %s to execute.\n", elapsed)
+
+									start = time.Now()
+									errorFloatPred, accFloatPred := multiThreadedFullData(int(rowCount)-predictionRows, selectedComputerDataCache, config["path"].(string), int(rowCount), inputCount, outputCount, &nnConfig)
+
+									fmt.Printf("Prediction Data Mean Absolute Percentage Error: %f%%\n", errorFloatPred)
+									fmt.Printf("Prediction Data Accuracy: %f%%\n", accFloatPred)
+									elapsed = time.Since(start)
+									fmt.Printf("The section of code took with http %s to execute.\n", elapsed)
+
+									fmt.Println("ROW COUNT:", rowCount)
+									//loopThroughData(config["path"].(string), int(rowCount))
+								}
+							}
+						}
+					}
+
+					break
+
+					// Print the progress
+					fmt.Printf("Processing item %d of %d\n", i+1, len(lstFolderItems))
+				}
+			}
+
+		}
+	}
+}
+
+func createFolder(selectedProject, folder, selectedComputerDataCache string) {
+	cleanPath := selectedProject + "/" + folder
+	if strings.HasPrefix(cleanPath, "/path/") {
+		cleanPath = strings.TrimPrefix(cleanPath, "/path/")
+	}
+	url := "http://" + selectedComputerDataCache + "/createfolder"
+	postData := map[string]interface{}{
+		"Path": "./" + cleanPath, // replace with your actual directory path
+	}
+	response, err := sendPostRequest(url, postData)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(response)
+}
+
+func getEvalFolders(dataProjectItems []map[string]interface{}) (map[string]bool, map[string]bool) {
+	nonEvalFolders := make(map[string]bool)
+	evalFolders := make(map[string]bool)
+
+	for _, item := range dataProjectItems {
+		name, ok := item["name"].(string)
+		if ok {
+			if strings.HasPrefix(name, "eval_") {
+				evalFolders[name] = true
+			} else {
+				nonEvalFolders[name] = true
+			}
+		}
+	}
+
+	return nonEvalFolders, evalFolders
+}
+
+func getUniqueNames(data []map[string]interface{}) map[string]bool {
+	uniqueNames := make(map[string]bool)
+	for _, item := range data {
+		name, ok := item["name"].(string)
+		if ok {
+			uniqueNames[name] = true
+		}
+	}
+	return uniqueNames
 }

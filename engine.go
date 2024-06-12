@@ -27,7 +27,7 @@ func main() {
 		envPort = "4125"
 	}
 
-	testingEval()
+	//testingEval()
 
 	app := fiber.New()
 
