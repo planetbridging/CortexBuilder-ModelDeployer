@@ -455,28 +455,28 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 											outputCount++
 										}
 									}
-									fmt.Println("Number of variables starting with 'input':", inputCount)
+									//fmt.Println("Number of variables starting with 'input':", inputCount)
 
 									totalRows := int(rowCount)
 
 									trainingRows, predictionRows := calculateRows(trainingPercent, predictionPercent, totalRows)
-									fmt.Printf("Training rows: %d, Prediction rows: %d\n", trainingRows, predictionRows)
+									//fmt.Printf("Training rows: %d, Prediction rows: %d\n", trainingRows, predictionRows)
 
 									start := time.Now()
 									errorFloat, accFloat := multiThreadedFullData(0, selectedComputerDataCache, config["path"].(string), trainingRows, inputCount, outputCount, &nnConfig)
 
-									fmt.Printf("Training Data Mean Absolute Percentage Error: %f%%\n", errorFloat)
-									fmt.Printf("Training Data Accuracy: %f%%\n", accFloat)
+									//fmt.Printf("Training Data Mean Absolute Percentage Error: %f%%\n", errorFloat)
+									//fmt.Printf("Training Data Accuracy: %f%%\n", accFloat)
 									elapsed := time.Since(start)
-									fmt.Printf("The section of code took with http %s to execute.\n", elapsed)
+									//fmt.Printf("The section of code took with http %s to execute.\n", elapsed)
 
 									start = time.Now()
 									errorFloatPred, accFloatPred := multiThreadedFullData(int(rowCount)-predictionRows, selectedComputerDataCache, config["path"].(string), int(rowCount), inputCount, outputCount, &nnConfig)
 
-									fmt.Printf("Prediction Data Mean Absolute Percentage Error: %f%%\n", errorFloatPred)
-									fmt.Printf("Prediction Data Accuracy: %f%%\n", accFloatPred)
+									//fmt.Printf("Prediction Data Mean Absolute Percentage Error: %f%%\n", errorFloatPred)
+									//fmt.Printf("Prediction Data Accuracy: %f%%\n", accFloatPred)
 									elapsedPred := time.Since(start)
-									fmt.Printf("The section of code took with http %s to execute.\n", elapsedPred)
+									//fmt.Printf("The section of code took with http %s to execute.\n", elapsedPred)
 
 									//fmt.Println("ROW COUNT:", rowCount)
 									//loopThroughData(config["path"].(string), int(rowCount))
@@ -495,15 +495,15 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 									if strings.HasPrefix(saveEvalLocation, "/path/") {
 										saveEvalLocation = strings.TrimPrefix(saveEvalLocation, "/path/")
 									}
-									fmt.Println(saveEvalLocation)
+									//fmt.Println(saveEvalLocation)
 									// Convert postData to JSON
 									saveDataToFile(saveEvalLocation, selectedComputerDataCache, postData)
 
-									data := map[string]interface{}{
+									/*data := map[string]interface{}{
 										"type":    "evalStatusUpdate",
 										"current": i + 1,               // replace with your actual current progress
 										"total":   len(lstFolderItems), // replace with your actual total number of models
-									}
+									}*/
 
 									/*jsonData, err := json.Marshal(data)
 									if err != nil {
@@ -512,7 +512,7 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 										hub.Broadcast(jsonData)
 									}*/
 
-									BroadcastJsonToClients(data)
+									//BroadcastJsonToClients(data)
 
 								}
 							}
@@ -520,6 +520,14 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 					}
 
 					//break
+
+					data := map[string]interface{}{
+						"type":    "evalStatusUpdate",
+						"current": i + 1,
+						"total":   len(lstFolderItems),
+					}
+
+					BroadcastJsonToClients(data)
 
 					// Print the progress
 					fmt.Printf("Processing item %d of %d\n", i+1, len(lstFolderItems))

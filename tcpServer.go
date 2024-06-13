@@ -174,11 +174,11 @@ func handleConnection(client *Client, password string) {
 					initializationPopulation(js)
 					break
 				case "startEval":
-					fmt.Println("--------------starting eval-----------------------")
-					fmt.Println(js)
+					//fmt.Println("--------------starting eval-----------------------")
+					//fmt.Println(js)
 					startEval(js)
 
-					serverInfo := make(map[string]interface{})
+					/*serverInfo := make(map[string]interface{})
 					serverInfo["ffs"] = "osInfo"
 
 					response, err = json.Marshal(serverInfo)
@@ -192,7 +192,7 @@ func handleConnection(client *Client, password string) {
 						"bugger": "hello",
 					}
 
-					BroadcastJsonToClients(data)
+					BroadcastJsonToClients(data)*/
 					// Get some basic computer specs
 					/*os := runtime.GOOS
 					arch := runtime.GOARCH
