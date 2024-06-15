@@ -11,7 +11,7 @@ import (
 
 /*
 successfully done testing - Weights Mutation: Modifies the weights of connections to adapt and refine the network's responses to inputs.
-Bias Mutation: Adjusts the biases of neurons to fine-tune the activation potential, enhancing the network's ability to fit complex patterns.
+successfully done testing - Bias Mutation: Adjusts the biases of neurons to fine-tune the activation potential, enhancing the network's ability to fit complex patterns.
 Add Node Mutation: Inserts a new node by splitting an existing connection, increasing the network's depth and potential for complexity.
 Add Connection Mutation: Creates a new connection between previously unconnected nodes, expanding the network's capacity for diverse interactions.
 Connection Enable/Disable: Toggles the enabled state of connections, allowing the network to experiment with different neural pathways without permanent structural changes. (Will be developed later)
@@ -58,6 +58,13 @@ func mutateModel(getModelLink string) {
 				outputs = feedforward(newWeightModel, inputValues)
 				fmt.Println(hasItBeenChanged, outputs)
 			}
+
+			// Randomize a random neuron's bias
+			fmt.Println("Randomizing a random neuron's bias")
+			nnConfigCopy := deepcopy.Copy(nnConfig).(NetworkConfig)
+			newBiasModel, hasBiasBeenChanged := randomizeRandomNeuronBias(&nnConfigCopy)
+			outputs = feedforward(newBiasModel, inputValues)
+			fmt.Println(hasBiasBeenChanged, outputs)
 		}
 	}
 }
@@ -150,4 +157,64 @@ func contains(slice []string, str string) bool {
 		}
 	}
 	return false
+}
+
+func randomizeRandomNeuronBias(nnConfig *NetworkConfig) (*NetworkConfig, bool) {
+	rand.Seed(time.Now().UnixNano())
+
+	// Create a list of neurons
+	var neuronsList []string
+	var layerTypes []string
+
+	// Iterate over each layer in hidden layers
+	for _, layer := range nnConfig.Layers.Hidden {
+		// Iterate over each neuron in the layer
+		for neuronID := range layer.Neurons {
+			neuronsList = append(neuronsList, neuronID)
+			layerTypes = append(layerTypes, "hidden")
+		}
+	}
+
+	// Iterate over each neuron in output layer
+	for neuronID := range nnConfig.Layers.Output.Neurons {
+		neuronsList = append(neuronsList, neuronID)
+		layerTypes = append(layerTypes, "output")
+	}
+
+	// If there are no neurons, return the original config and false
+	if len(neuronsList) == 0 {
+		return nnConfig, false
+	}
+
+	// Select a random neuron from the list
+	randomIndex := rand.Intn(len(neuronsList))
+	randomNeuronID := neuronsList[randomIndex]
+	randomLayerType := layerTypes[randomIndex]
+
+	// Randomize its bias
+	if randomLayerType == "hidden" {
+		for i, layer := range nnConfig.Layers.Hidden {
+			for neuronID := range layer.Neurons {
+				if neuronID == randomNeuronID {
+					// Get the neuron, randomize the bias, and assign it back to the map
+					neuron := nnConfig.Layers.Hidden[i].Neurons[neuronID]
+					neuron.Bias = rand.NormFloat64()
+					nnConfig.Layers.Hidden[i].Neurons[neuronID] = neuron
+					return nnConfig, true
+				}
+			}
+		}
+	} else if randomLayerType == "output" {
+		for neuronID := range nnConfig.Layers.Output.Neurons {
+			if neuronID == randomNeuronID {
+				// Get the neuron, randomize the bias, and assign it back to the map
+				neuron := nnConfig.Layers.Output.Neurons[neuronID]
+				neuron.Bias = rand.NormFloat64()
+				nnConfig.Layers.Output.Neurons[neuronID] = neuron
+				return nnConfig, true
+			}
+		}
+	}
+
+	return nnConfig, false
 }
