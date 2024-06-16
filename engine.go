@@ -28,7 +28,8 @@ func main() {
 	}
 
 	//testingEval()
-	setupMutation()
+	//setupMutation()
+	//settingUpRanking()
 
 	app := fiber.New()
 
