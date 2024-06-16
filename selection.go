@@ -7,8 +7,9 @@ import (
 )
 
 type ModelPerformance struct {
-	Name                 string
-	TrainingDataAccuracy float64
+	Name                   string
+	TrainingDataAccuracy   float64
+	PredictionDataAccuracy float64
 }
 
 func settingUpRanking() {
@@ -75,8 +76,10 @@ func createRanking(selectedComputerDataCache string, selectedProject string, fol
 				fmt.Println("errGetEvalResults", errGetEvalResults)
 			} else {
 				if evalData, ok := getEvalResults.(map[string]interface{}); ok {
-					if accuracy, ok := evalData["Training_Data_Accuracy"].(float64); ok {
-						performances = append(performances, ModelPerformance{Name: name, TrainingDataAccuracy: accuracy})
+					if trainingAccuracy, ok := evalData["Training_Data_Accuracy"].(float64); ok {
+						if predictionAccuracy, ok := evalData["Prediction_Data_Accuracy"].(float64); ok {
+							performances = append(performances, ModelPerformance{Name: name, TrainingDataAccuracy: trainingAccuracy, PredictionDataAccuracy: predictionAccuracy})
+						}
 					}
 				}
 			}
@@ -94,9 +97,10 @@ func createRanking(selectedComputerDataCache string, selectedProject string, fol
 	var lstRanking []map[string]interface{}
 	for i, performance := range performances {
 		rank := map[string]interface{}{
-			"rank":                   i,
-			"file_name":              performance.Name,
-			"Training_Data_Accuracy": performance.TrainingDataAccuracy,
+			"rank":                     i,
+			"file_name":                performance.Name,
+			"Training_Data_Accuracy":   performance.TrainingDataAccuracy,
+			"Prediction_Data_Accuracy": performance.PredictionDataAccuracy,
 		}
 		lstRanking = append(lstRanking, rank)
 	}
