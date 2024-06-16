@@ -13,7 +13,7 @@ import (
 successfully done testing - Weights Mutation: Modifies the weights of connections to adapt and refine the network's responses to inputs.
 successfully done testing - Bias Mutation: Adjusts the biases of neurons to fine-tune the activation potential, enhancing the network's ability to fit complex patterns.
 successfully done testing - Add new neuron with random bias, connections, activation function and weight
-Add Connection Mutation: Creates a new connection between previously unconnected nodes, expanding the network's capacity for diverse interactions.
+successfully done testing - Add Connection Mutation: Creates a new connection between previously unconnected nodes, expanding the network's capacity for diverse interactions.
 Connection Enable/Disable: Toggles the enabled state of connections, allowing the network to experiment with different neural pathways without permanent structural changes. (Will be developed later)
 Add Layer Mutation: Introduces entirely new layers to the network, significantly enhancing its depth and functional complexity.
 successfully done testing - Activation Function Mutation: Alters the activation function of nodes to better suit different types of data processing needs, adapting to the specific characteristics of the input data.
@@ -73,12 +73,25 @@ func mutateModel(getModelLink string) {
 			outputs = feedforward(newActivationModel, inputValues)
 			fmt.Println(hasActivationBeenChanged, outputs)
 
-			// Randomize a random neuron's activation function
-			fmt.Println("Randomizing new neuron with random connections, random bias, random weight and activation function")
-			nnConfigCopy = deepcopy.Copy(nnConfig).(NetworkConfig)
-			newNeuronModel, hasNewNeron := addRandomNeuronToHiddenLayer(&nnConfigCopy)
-			outputs = feedforward(newNeuronModel, inputValues)
-			fmt.Println(hasNewNeron, outputs)
+			/*nnConfigCopyBuilding := deepcopy.Copy(nnConfig).(NetworkConfig)
+
+			for i := 0; i < 100; i++ {
+				// Randomize a random neuron's activation function
+				newNeuronModel, hasNewNeron := addRandomNeuronToHiddenLayer(&nnConfigCopyBuilding)
+				outputs := feedforward(newNeuronModel, inputValues)
+				fmt.Println(hasNewNeron, outputs)
+				nnConfigCopyBuilding = *newNeuronModel
+				//fmt.Println(newNeuronModel)
+			}*/
+
+			for i := 0; i < 5; i++ {
+				// Randomize a random neuron's activation function
+				fmt.Println("Randomizing a random connection")
+				nnConfigCopy = deepcopy.Copy(nnConfig).(NetworkConfig)
+				newRandomConnection, hasRandomConnectionBeenAdded := addRandomConnection(&nnConfigCopy)
+				outputs = feedforward(newRandomConnection, inputValues)
+				fmt.Println(hasRandomConnectionBeenAdded, outputs)
+			}
 
 		}
 	}
@@ -345,4 +358,78 @@ func addRandomNeuronToHiddenLayer(nnConfig *NetworkConfig) (*NetworkConfig, bool
 	nnConfig.Layers.Hidden[randomLayerIndex].Neurons[newNeuronID] = newNeuron
 
 	return nnConfig, true
+}
+
+func addRandomConnection(nnConfig *NetworkConfig) (*NetworkConfig, bool) {
+	rand.Seed(time.Now().UnixNano())
+
+	// Create a list of potential source neurons (from input and hidden layers)
+	var sourceNeurons []string
+	for neuronID := range nnConfig.Layers.Input.Neurons {
+		sourceNeurons = append(sourceNeurons, neuronID)
+	}
+	for _, layer := range nnConfig.Layers.Hidden {
+		for neuronID := range layer.Neurons {
+			sourceNeurons = append(sourceNeurons, neuronID)
+		}
+	}
+
+	// Create a list of potential target neurons (from hidden and output layers)
+	var targetNeurons []string
+	var targetLayerTypes []string
+	for _, layer := range nnConfig.Layers.Hidden {
+		for neuronID := range layer.Neurons {
+			targetNeurons = append(targetNeurons, neuronID)
+			targetLayerTypes = append(targetLayerTypes, "hidden")
+		}
+	}
+	for neuronID := range nnConfig.Layers.Output.Neurons {
+		targetNeurons = append(targetNeurons, neuronID)
+		targetLayerTypes = append(targetLayerTypes, "output")
+	}
+
+	// Shuffle the target neurons and layer types
+	rand.Shuffle(len(targetNeurons), func(i, j int) {
+		targetNeurons[i], targetNeurons[j] = targetNeurons[j], targetNeurons[i]
+		targetLayerTypes[i], targetLayerTypes[j] = targetLayerTypes[j], targetLayerTypes[i]
+	})
+
+	// Iterate through the target neurons and try to add a connection
+	for i, targetNeuronID := range targetNeurons {
+		// Randomly select a source neuron
+		sourceNeuronID := sourceNeurons[rand.Intn(len(sourceNeurons))]
+
+		// Check if the connection already exists
+		connectionExists := false
+		if targetLayerTypes[i] == "hidden" {
+			for _, layer := range nnConfig.Layers.Hidden {
+				if _, ok := layer.Neurons[targetNeuronID].Connections[sourceNeuronID]; ok {
+					connectionExists = true
+					break
+				}
+			}
+		} else if targetLayerTypes[i] == "output" {
+			if _, ok := nnConfig.Layers.Output.Neurons[targetNeuronID].Connections[sourceNeuronID]; ok {
+				connectionExists = true
+			}
+		}
+
+		// If the connection doesn't exist, add it and return
+		if !connectionExists {
+			if targetLayerTypes[i] == "hidden" {
+				for j, layer := range nnConfig.Layers.Hidden {
+					if _, ok := layer.Neurons[targetNeuronID]; ok {
+						nnConfig.Layers.Hidden[j].Neurons[targetNeuronID].Connections[sourceNeuronID] = Connection{Weight: rand.NormFloat64()}
+						return nnConfig, true
+					}
+				}
+			} else if targetLayerTypes[i] == "output" {
+				nnConfig.Layers.Output.Neurons[targetNeuronID].Connections[sourceNeuronID] = Connection{Weight: rand.NormFloat64()}
+				return nnConfig, true
+			}
+		}
+	}
+
+	// If no new connection was added, return the original model and false
+	return nnConfig, false
 }
