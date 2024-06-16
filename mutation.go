@@ -12,7 +12,7 @@ import (
 /*
 successfully done testing - Weights Mutation: Modifies the weights of connections to adapt and refine the network's responses to inputs.
 successfully done testing - Bias Mutation: Adjusts the biases of neurons to fine-tune the activation potential, enhancing the network's ability to fit complex patterns.
-Add Node Mutation: Inserts a new node by splitting an existing connection, increasing the network's depth and potential for complexity.
+successfully done testing - Add new neuron with random bias, connections, activation function and weight
 Add Connection Mutation: Creates a new connection between previously unconnected nodes, expanding the network's capacity for diverse interactions.
 Connection Enable/Disable: Toggles the enabled state of connections, allowing the network to experiment with different neural pathways without permanent structural changes. (Will be developed later)
 Add Layer Mutation: Introduces entirely new layers to the network, significantly enhancing its depth and functional complexity.
@@ -72,6 +72,13 @@ func mutateModel(getModelLink string) {
 			newActivationModel, hasActivationBeenChanged := randomizeRandomNeuronActivationType(&nnConfigCopy)
 			outputs = feedforward(newActivationModel, inputValues)
 			fmt.Println(hasActivationBeenChanged, outputs)
+
+			// Randomize a random neuron's activation function
+			fmt.Println("Randomizing new neuron with random connections, random bias, random weight and activation function")
+			nnConfigCopy = deepcopy.Copy(nnConfig).(NetworkConfig)
+			newNeuronModel, hasNewNeron := addRandomNeuronToHiddenLayer(&nnConfigCopy)
+			outputs = feedforward(newNeuronModel, inputValues)
+			fmt.Println(hasNewNeron, outputs)
 
 		}
 	}
@@ -298,4 +305,44 @@ func getRandomDifferentActivationType(currentType string, activationTypes []stri
 			return newType
 		}
 	}
+}
+
+func addRandomNeuronToHiddenLayer(nnConfig *NetworkConfig) (*NetworkConfig, bool) {
+	rand.Seed(time.Now().UnixNano())
+
+	// List of all activation types
+	activationTypes := []string{"relu", "sigmoid", "tanh", "softmax", "leaky_relu", "swish", "elu", "selu", "softplus"}
+
+	// Select a random activation type for the new neuron
+	activationType := activationTypes[rand.Intn(len(activationTypes))]
+
+	// Create a new neuron with a random bias and the selected activation type
+	newNeuron := Neuron{
+		ActivationType: activationType,
+		Bias:           rand.NormFloat64(),
+		Connections:    make(map[string]Connection),
+	}
+
+	// Add random connections to the new neuron from the input layer
+	for inputID := range nnConfig.Layers.Input.Neurons {
+		if rand.Float64() < 0.5 { // 50% chance to connect to each input neuron
+			newNeuron.Connections[inputID] = Connection{Weight: rand.NormFloat64()}
+		}
+	}
+
+	// Add random connections to the new neuron from the hidden layers
+	for _, layer := range nnConfig.Layers.Hidden {
+		for neuronID := range layer.Neurons {
+			if rand.Float64() < 0.5 { // 50% chance to connect to each neuron in the hidden layers
+				newNeuron.Connections[neuronID] = Connection{Weight: rand.NormFloat64()}
+			}
+		}
+	}
+
+	// Add the new neuron to a random hidden layer
+	randomLayerIndex := rand.Intn(len(nnConfig.Layers.Hidden))
+	newNeuronID := fmt.Sprintf("n%d", len(nnConfig.Layers.Hidden[randomLayerIndex].Neurons)+1)
+	nnConfig.Layers.Hidden[randomLayerIndex].Neurons[newNeuronID] = newNeuron
+
+	return nnConfig, true
 }
