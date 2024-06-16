@@ -16,7 +16,7 @@ Add Node Mutation: Inserts a new node by splitting an existing connection, incre
 Add Connection Mutation: Creates a new connection between previously unconnected nodes, expanding the network's capacity for diverse interactions.
 Connection Enable/Disable: Toggles the enabled state of connections, allowing the network to experiment with different neural pathways without permanent structural changes. (Will be developed later)
 Add Layer Mutation: Introduces entirely new layers to the network, significantly enhancing its depth and functional complexity.
-Activation Function Mutation: Alters the activation function of nodes to better suit different types of data processing needs, adapting to the specific characteristics of the input data.
+successfully done testing - Activation Function Mutation: Alters the activation function of nodes to better suit different types of data processing needs, adapting to the specific characteristics of the input data.
 */
 
 func setupMutation() {
@@ -65,6 +65,14 @@ func mutateModel(getModelLink string) {
 			newBiasModel, hasBiasBeenChanged := randomizeRandomNeuronBias(&nnConfigCopy)
 			outputs = feedforward(newBiasModel, inputValues)
 			fmt.Println(hasBiasBeenChanged, outputs)
+
+			// Randomize a random neuron's activation function
+			fmt.Println("Randomizing a random neuron's activation function")
+			nnConfigCopy = deepcopy.Copy(nnConfig).(NetworkConfig)
+			newActivationModel, hasActivationBeenChanged := randomizeRandomNeuronActivationType(&nnConfigCopy)
+			outputs = feedforward(newActivationModel, inputValues)
+			fmt.Println(hasActivationBeenChanged, outputs)
+
 		}
 	}
 }
@@ -217,4 +225,77 @@ func randomizeRandomNeuronBias(nnConfig *NetworkConfig) (*NetworkConfig, bool) {
 	}
 
 	return nnConfig, false
+}
+
+func randomizeRandomNeuronActivationType(nnConfig *NetworkConfig) (*NetworkConfig, bool) {
+	rand.Seed(time.Now().UnixNano())
+
+	// Create a list of neurons
+	var neuronsList []string
+	var layerTypes []string
+
+	// Iterate over each layer in hidden layers
+	for _, layer := range nnConfig.Layers.Hidden {
+		// Iterate over each neuron in the layer
+		for neuronID := range layer.Neurons {
+			neuronsList = append(neuronsList, neuronID)
+			layerTypes = append(layerTypes, "hidden")
+		}
+	}
+
+	// Iterate over each neuron in output layer
+	for neuronID := range nnConfig.Layers.Output.Neurons {
+		neuronsList = append(neuronsList, neuronID)
+		layerTypes = append(layerTypes, "output")
+	}
+
+	// If there are no neurons, return the original config and false
+	if len(neuronsList) == 0 {
+		return nnConfig, false
+	}
+
+	// Select a random neuron from the list
+	randomIndex := rand.Intn(len(neuronsList))
+	randomNeuronID := neuronsList[randomIndex]
+	randomLayerType := layerTypes[randomIndex]
+
+	// List of all activation types
+	activationTypes := []string{"relu", "sigmoid", "tanh", "softmax", "leaky_relu", "swish", "elu", "selu", "softplus"}
+
+	// Change its activation type
+	if randomLayerType == "hidden" {
+		for i, layer := range nnConfig.Layers.Hidden {
+			for neuronID, _ := range layer.Neurons {
+				if neuronID == randomNeuronID {
+					// Get the neuron, change the activation type to a different one, and assign it back to the map
+					neuron := nnConfig.Layers.Hidden[i].Neurons[neuronID]
+					neuron.ActivationType = getRandomDifferentActivationType(neuron.ActivationType, activationTypes)
+					nnConfig.Layers.Hidden[i].Neurons[neuronID] = neuron
+					return nnConfig, true
+				}
+			}
+		}
+	} else if randomLayerType == "output" {
+		for neuronID, _ := range nnConfig.Layers.Output.Neurons {
+			if neuronID == randomNeuronID {
+				// Get the neuron, change the activation type to a different one, and assign it back to the map
+				neuron := nnConfig.Layers.Output.Neurons[neuronID]
+				neuron.ActivationType = getRandomDifferentActivationType(neuron.ActivationType, activationTypes)
+				nnConfig.Layers.Output.Neurons[neuronID] = neuron
+				return nnConfig, true
+			}
+		}
+	}
+
+	return nnConfig, false
+}
+
+// Helper function to get a random activation type that is different from the current one
+func getRandomDifferentActivationType(currentType string, activationTypes []string) string {
+	for {
+		newType := activationTypes[rand.Intn(len(activationTypes))]
+		if newType != currentType {
+			return newType
+		}
+	}
 }
