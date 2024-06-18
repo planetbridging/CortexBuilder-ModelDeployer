@@ -329,14 +329,43 @@ func calculateRows(trainingPercent float64, predictionPercent float64, totalRows
 }
 
 func startEval(js map[string]interface{}) {
-
+	printOutMap(js)
 	selectedComputer, sCOk := js["selectedComputer"].(string)
 	clientID, cIOk := js["clientID"].(string)
 	aiPod, aPOk := js["aiPod"].(string)
 	selectedDataPath, sdpOk := js["selectedDataPath"].(string)
 	selectedProject, spOk := js["selectedProject"].(string)
-	testing, testOk := js["testing"].(float64)
-	training, trainOk := js["training"].(float64)
+	//testing, testOk := js["testing"].(float64)
+	//training, trainOk := js["training"].(float64)
+	var testOk bool
+	var trainOk bool
+	var testing float64
+	switch v := js["testing"].(type) {
+	case float64:
+		testing = v
+		testOk = true
+	case int:
+		testing = float64(v)
+		testOk = true
+	case string:
+		var err error
+		testing, err = strconv.ParseFloat(v, 64)
+		testOk = (err == nil)
+	}
+
+	var training float64
+	switch v := js["training"].(type) {
+	case float64:
+		training = v
+		trainOk = true
+	case int:
+		training = float64(v)
+		trainOk = true
+	case string:
+		var err error
+		training, err = strconv.ParseFloat(v, 64)
+		trainOk = (err == nil)
+	}
 
 	//selectedProject:/path/testing
 
@@ -411,7 +440,7 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 			if lstFolderItemsOk {
 				for i, item := range lstFolderItems {
 					itemFolderName, itemFolderNameOk := item["name"].(string)
-					fmt.Println("-------------------", itemFolderName)
+					//fmt.Println("-------------------", itemFolderName)
 
 					if _, ok := lstUniqEvalFiles[itemFolderName]; ok {
 						// "yourKey" exists in the map
@@ -529,8 +558,10 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 
 					BroadcastJsonToClients(data)
 
+					// Continue with the rest of the function...
+
 					// Print the progress
-					fmt.Printf("Processing item %d of %d\n", i+1, len(lstFolderItems))
+					//fmt.Printf("Processing item %d of %d\n", i+1, len(lstFolderItems))
 
 				}
 			}

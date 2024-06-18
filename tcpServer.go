@@ -258,23 +258,29 @@ func startTcpServer(password string) {
 	}
 }
 
-func BroadcastJsonToClients(msg map[string]interface{}) {
+func BroadcastJsonToClients(msg map[string]interface{}) error {
 	// Marshal the message into JSON
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
-		log.Printf("Error marshaling message: %v\n", err)
-		return
+		return fmt.Errorf("error marshaling message: %v", err)
 	}
 
-	fmt.Println("clients connected?", len(hub.clients))
+	// Check if hub or hub.clients is nil
+	if hub == nil {
+		return fmt.Errorf("hub is nil")
+	}
+	if hub.clients == nil {
+		return fmt.Errorf("hub.clients is nil")
+	}
+
 	// Loop through all connected clients and send the message
 	for addr, client := range hub.clients {
 		_, err := client.Conn.Write(jsonData)
 		if err != nil {
-			log.Printf("Error broadcasting to client %s: %v\n", addr, err)
 			hub.RemoveClient(addr)
-		} else {
-			log.Printf("Message sent to client %s\n", addr)
+			return fmt.Errorf("error broadcasting to client %s: %v", addr, err)
 		}
 	}
+
+	return nil
 }
