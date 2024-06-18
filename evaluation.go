@@ -22,7 +22,7 @@ func testingEval() {
 
 		dataConfigInterface, _ := parseJSONFromURL("http://" + envSavedDataCachePort + "/files/config.json")
 		dataConfig, ok := dataConfigInterface.(map[string]interface{})
-
+		
 		if !ok {
 			fmt.Println("Error: config data is not an object")
 			return
@@ -78,8 +78,8 @@ func testingEval() {
 				itemName, ok := item["name"].(string)
 				if ok {
 					itemURL := "http://" + envSavedDataCachePort + strings.Replace(setProjectPath, "/path/", "/files/", 1) + "/" + folder + "/" + itemName
-					fmt.Println(item)
-					fmt.Println(itemURL)
+					//fmt.Println(item)
+					//fmt.Println(itemURL)
 
 					// Fetch the neural network configuration
 					nnConfigJSON, err := getRequest(itemURL)
@@ -380,7 +380,7 @@ func startEval(js map[string]interface{}) {
 
 		if okDataConfig && dataMountedConfigOk {
 			fmt.Println(dataConfig)
-			fmt.Println(dataMountedConfig)
+			//fmt.Println(dataMountedConfig)
 
 			dataProjectItemsInterface, err := parseJSONFromURL("http://" + selectedComputerDataCache + selectedProject)
 			//fmt.Println("http://" + selectedComputerDataCache + selectedProject)
@@ -424,7 +424,7 @@ func processEval(nonEvalFolders map[string]bool, evalFolders map[string]bool, se
 		if errEval != nil {
 			fmt.Println(errEval)
 		} else {
-			fmt.Println(newFolderItemsEval)
+			//fmt.Println(newFolderItemsEval)
 			items, ok := newFolderItemsEval.([]map[string]interface{})
 			if !ok {
 				fmt.Println("Error: newFolderItemsEval is not of type []map[string]interface{}")
