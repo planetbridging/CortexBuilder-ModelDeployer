@@ -12,7 +12,7 @@ import (
 )
 
 func testingSetupRMHC() {
-	runRMHC("localhost", "/path/testing", "./host/data.csv", 10)
+	runRMHC("localhost", "/path/testing", "./host/data.csv", 1000)
 }
 
 func printOutMap(js map[string]interface{}) {
@@ -130,7 +130,7 @@ func createNewGeneration(selectedComputer string, selectedProject string, select
 				if i >= 10 {
 					break
 				}
-				fmt.Printf("Entry %d: %v\n", i+1, entry)
+				fmt.Printf("Entry %d: %v\n", i+1, entry)		
 				
 
 				entryMap, ok := entry.(map[string]interface{})
@@ -155,6 +155,19 @@ func createNewGeneration(selectedComputer string, selectedProject string, select
 								fmt.Println("Error decoding JSON:", err)
 							} else {
 								fmt.Println(nnConfig)
+
+								modelNameCurrent := uuid.New()
+								saveEvalLocationCurrent := selectedProject + "/" + strconv.Itoa(newFolderNumber) + "/" + modelNameCurrent.String() + ".json"
+								if strings.HasPrefix(saveEvalLocationCurrent, "/path/") {
+									saveEvalLocationCurrent = strings.TrimPrefix(saveEvalLocationCurrent, "/path/")
+								}
+				
+								convertModelFromOld,err := convertToMap(nnConfig)
+								if err != nil{
+									fmt.Println("failed to convert model")
+								}else{
+									saveDataToFile(saveEvalLocationCurrent, selectedComputerDataCache, convertModelFromOld)
+								}	
 
 								for m := 0; m < groups; m++ {
 									randomIndex := rand.Intn(len(lstMutations))
