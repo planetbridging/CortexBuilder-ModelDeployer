@@ -164,11 +164,15 @@ func createNewGeneration(selectedComputer string, selectedProject string, select
 
 									switch lstMutations[randomIndex]{
 										case "weightsMutation":
-											lstUsingActiveFunctions := getActivationFunctions(&nnConfig)
-											randomSelectActivationFunction := rand.Intn(len(lstUsingActiveFunctions))
-											newWeightModelTmp, hasItBeenChangedTmp := randomizeWeightByActivationType(&nnConfig, lstUsingActiveFunctions[randomSelectActivationFunction])
-											newWeightModel = newWeightModelTmp
-											hasItBeenChanged = hasItBeenChangedTmp
+											/*lstUsingActiveFunctions := getActivationFunctions(&nnConfig)
+											fmt.Println("-----------------------",lstUsingActiveFunctions)
+											if len(lstUsingActiveFunctions) > 0 {
+												randomSelectActivationFunction := rand.Intn(len(lstUsingActiveFunctions))
+												newWeightModelTmp, hasItBeenChangedTmp := randomizeWeightByActivationType(&nnConfig, lstUsingActiveFunctions[randomSelectActivationFunction])
+												newWeightModel = newWeightModelTmp
+												hasItBeenChanged = hasItBeenChangedTmp
+											}*/
+											
 										case "biasMutation":
 											newWeightModelTmp, hasItBeenChangedTmp := randomizeRandomNeuronBias(&nnConfig)
 											newWeightModel = newWeightModelTmp
