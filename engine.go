@@ -30,7 +30,7 @@ func main() {
 	//testingEval()
 	//setupMutation()
 	//settingUpRanking()
-	//testingSetupRMHC()
+	testingSetupRMHC()
 
 	app := fiber.New()
 

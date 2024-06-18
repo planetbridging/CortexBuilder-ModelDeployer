@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt" 
+	"strings"
+)
 
 func testingSetupRMHC() {
 	runRMHC("localhost", "/path/testing", "./host/data.csv", 10)
@@ -42,16 +45,65 @@ func runRMHC(selectedComputer string, selectedProject string, selectedDataPath s
 			ranking(selectedComputer, selectedProject)
 
 			nonEvalFolders, evalFolders := getEvalFolders(dataProjectItems)
-			fmt.Println(nonEvalFolders)
-			fmt.Println(evalFolders)
-
+			//fmt.Println(nonEvalFolders)
+			//fmt.Println(evalFolders)
+			_ = nonEvalFolders
 			if _, ok := evalFolders["eval_init"]; ok {
-				fmt.Println("The key 'yourKey' exists in the evalFolders map.")
+				fmt.Println("The key 'eval_init' exists in the evalFolders map.")
+
+
+				createNewGeneration(selectedComputer,selectedProject,selectedDataPath,selectedComputerDataCache,"eval_init")
+				
+
 			} else {
-				fmt.Println("The key 'yourKey' does not exist in the evalFolders map.")
+				fmt.Println("The key 'eval_init' does not exist in the evalFolders map.")
 			}
 		}
 
 		break
+	}
+}
+
+
+func createNewGeneration(selectedComputer string, selectedProject string, selectedDataPath string, selectedComputerDataCache string, folder string) {
+    // http://localhost:4123/files/testing/eval_init/ranking.json
+	// http://localhost:4123/files/testing
+	//http://localhost:4123/files/testingeval_init/ranking.json
+    modifiedProject := strings.Replace(selectedProject, "/path/", "/files/", -1) + "/"+folder + "/ranking.json"
+
+    getOldRankingsUrl := "http://" + selectedComputerDataCache + modifiedProject
+    fmt.Println(getOldRankingsUrl)
+	getRankings, getRankingsErr := parseJSONFromURL(getOldRankingsUrl)
+	if getRankingsErr != nil{
+		fmt.Println(getRankingsErr)
+	}else{
+		rankingsMap, ok := getRankings.(map[string]interface{})
+		if !ok {
+			fmt.Println("Error: Unable to assert getRankings as map[string]interface{}")
+		}else{
+			fmt.Println(rankingsMap)
+
+			// Access the "lstlstRanking" key
+			lstRanking, lstlstRankingExists := rankingsMap["lstRanking"]
+			if !lstlstRankingExists {
+				fmt.Println("Error: 'lstlstRanking' key not found in the map.")
+				return
+			}
+
+			// Type assertion to ensure lstlstRanking is a slice of interfaces
+			rankingSlice, ok := lstRanking.([]interface{})
+			if !ok {
+				fmt.Println("Error: Unable to assert lstRanking as []interface{}")
+				return
+			}
+
+			// Loop over the first 10 entries
+			for i, entry := range rankingSlice {
+				if i >= 10 {
+					break
+				}
+				fmt.Printf("Entry %d: %v\n", i+1, entry)
+			}
+		}
 	}
 }
