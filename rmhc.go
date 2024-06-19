@@ -11,8 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
+var lstMutations = []string{
+	"weightsMutation",
+	"biasMutation",
+	"addNewNeuronMutation",
+	"addConnectionMutation",
+	"addLayerMutation",
+	"activationFunctionMutation",
+}
+
 func testingSetupRMHC() {
-	runRMHC("localhost", "/path/testing", "./host/data.csv", 1000)
+	runRMHC("localhost", "/path/testing", "./host/data.csv", 5)
 }
 
 func printOutMap(js map[string]interface{}) {
@@ -25,22 +34,197 @@ func printOutMap(js map[string]interface{}) {
 func runRMHC(selectedComputer string, selectedProject string, selectedDataPath string, amountOfGenerations int) {
 	selectedComputerDataCache := selectedComputer + ":4123"
 	for i := 0; i < amountOfGenerations; i++ {
+		//fmt.Println("http://" + selectedComputerDataCache + selectedProject)
 		dataProjectItemsInterface, err := parseJSONFromURL("http://" + selectedComputerDataCache + selectedProject)
 		if err != nil {
 			fmt.Println("runRMHC error:", err)
 		} else {
 			//fmt.Println(dataProjectItemsInterface)
 
-			js := map[string]interface{}{
-				"selectedComputer": selectedComputer,
-				"selectedDataPath": selectedDataPath,
-				"selectedProject":  selectedProject,
-				"testing":          30,
-				"training":         70,
-				"clientID":         "127.0.0.1:36478",
-				"aiPod":            "localhost:12346",
+			
+			dataProjectItems, dataProjectItemsOk := dataProjectItemsInterface.([]map[string]interface{})
+			if dataProjectItemsOk {
+				js := map[string]interface{}{
+					"selectedComputer": selectedComputer,
+					"selectedDataPath": selectedDataPath,
+					"selectedProject":  selectedProject,
+					"testing":          30,
+					"training":         70,
+					"clientID":         "127.0.0.1:36478",
+					"aiPod":            "localhost:12346",
+				}
+				nonEvalFolders, evalFolders := getEvalFolders(dataProjectItems)
+				_ = nonEvalFolders
+				//fmt.Println(evalFolders,len(evalFolders))
+				if len(evalFolders) == 0{
+					startEval(js)
+					ranking(selectedComputer, selectedProject)
+				}else{
+					createFolder(selectedProject, strconv.Itoa(i), selectedComputerDataCache)
+					//fmt.Println("can how work with a evaluatoin")
+					projectFiles := strings.Replace(selectedProject, "/path/", "/files/", -1) + "/"
+					projectFilesFullLink := "http://" + selectedComputerDataCache + projectFiles 
+					getRankLink := ""
+					copyFrom := strconv.Itoa(i)
+					copyTo := strconv.Itoa(i + 1)
+					if len(evalFolders) == 1{
+						if i == 0{
+							fmt.Println(projectFilesFullLink,"i only run once with eval_int to 0")
+							getRankLink = projectFilesFullLink + "eval_init/ranking.json"
+							copyFrom = "init"
+							copyTo = strconv.Itoa(i)
+						}
+						
+					}else{
+						fmt.Println("imhigherthen1",len(evalFolders))
+						getRankLink = projectFilesFullLink + "eval_"+copyFrom+"/ranking.json"
+					}
+
+					if getRankLink != ""{
+						fmt.Println("ill copy the best models over now", getRankLink)
+
+						getRankings, getRankingsErr := parseJSONFromURL(getRankLink)
+						if getRankingsErr != nil{
+							fmt.Println(getRankingsErr)
+						}else{
+							rankingsMap, ok := getRankings.(map[string]interface{})
+							if !ok {
+								fmt.Println("Error: Unable to assert getRankings as map[string]interface{}")
+							}else{
+								//fmt.Println(rankingsMap)
+
+								// Access the "lstlstRanking" key
+								lstRanking, lstlstRankingExists := rankingsMap["lstRanking"]
+								if !lstlstRankingExists {
+									fmt.Println("Error: 'lstlstRanking' key not found in the map.")
+									return
+								}
+
+								// Type assertion to ensure lstlstRanking is a slice of interfaces
+								rankingSlice, ok := lstRanking.([]interface{})
+								if !ok {
+									fmt.Println("Error: Unable to assert lstRanking as []interface{}")
+								}else{
+									//fmt.Println(rankingSlice)
+									groups := int(math.Ceil(float64(len(rankingSlice)) / 10))
+									fmt.Printf("Model count: %d, splitting into %d groups\n", len(rankingSlice), groups)
+						
+									for i, entry := range rankingSlice {
+										if i >= 10 {
+											break
+										}
+
+										entryMap, entryMapok := entry.(map[string]interface{})
+										if entryMapok {
+											fileName, fileNameok := entryMap["file_name"].(string)
+											if fileNameok{
+												getRankedModelLink := projectFilesFullLink + copyFrom + "/" +fileName
+												nnConfigJSON, nnConfigJSONerr := getRequest(getRankedModelLink)
+												if nnConfigJSONerr == nil {
+													var nnConfig NetworkConfig
+													errnnConfig := json.Unmarshal(nnConfigJSON, &nnConfig)
+													if errnnConfig == nil {
+														convertModelFromOld,convertModelFromOlderr := convertToMap(nnConfig)
+														if convertModelFromOlderr == nil{
+															//fmt.Println(convertModelFromOld)
+															saveEvalLocationCurrent := selectedProject + "/" + copyTo + "/" + fileName
+															if strings.HasPrefix(saveEvalLocationCurrent, "/path/") {
+																saveEvalLocationCurrent = strings.TrimPrefix(saveEvalLocationCurrent, "/path/")
+															}
+															//fmt.Println(saveEvalLocationCurrent)
+															saveDataToFile(saveEvalLocationCurrent, selectedComputerDataCache, convertModelFromOld)
+															for m := 0; m < groups; m++ {
+																randomIndex := rand.Intn(len(lstMutations))
+							
+																var newWeightModel *NetworkConfig
+																var hasItBeenChanged bool
+							
+																switch lstMutations[randomIndex]{
+																	case "weightsMutation":
+																		/*lstUsingActiveFunctions := getActivationFunctions(&nnConfig)
+																		fmt.Println("-----------------------",lstUsingActiveFunctions)
+																		if len(lstUsingActiveFunctions) > 0 {
+																			randomSelectActivationFunction := rand.Intn(len(lstUsingActiveFunctions))
+																			newWeightModelTmp, hasItBeenChangedTmp := randomizeWeightByActivationType(&nnConfig, lstUsingActiveFunctions[randomSelectActivationFunction])
+																			newWeightModel = newWeightModelTmp
+																			hasItBeenChanged = hasItBeenChangedTmp
+																		}*/
+																		
+																	case "biasMutation":
+																		newWeightModelTmp, hasItBeenChangedTmp := randomizeRandomNeuronBias(&nnConfig)
+																		newWeightModel = newWeightModelTmp
+																		hasItBeenChanged = hasItBeenChangedTmp
+																	case "addNewNeuronMutation":
+																		newWeightModelTmp, hasItBeenChangedTmp := addRandomNeuronToHiddenLayer(&nnConfig)
+																		newWeightModel = newWeightModelTmp
+																		hasItBeenChanged = hasItBeenChangedTmp
+																	case "addConnectionMutation":
+																		newWeightModelTmp, hasItBeenChangedTmp := addRandomConnection(&nnConfig)
+																		newWeightModel = newWeightModelTmp
+																		hasItBeenChanged = hasItBeenChangedTmp
+																	case "addLayerMutation":
+																		newWeightModelTmp, hasItBeenChangedTmp := addRandomHiddenLayer(&nnConfig)
+																		newWeightModel = newWeightModelTmp
+																		hasItBeenChanged = hasItBeenChangedTmp
+																	case "activationFunctionMutation":
+																		newWeightModelTmp, hasItBeenChangedTmp := randomizeRandomNeuronActivationType(&nnConfig)
+																		newWeightModel = newWeightModelTmp
+																		hasItBeenChanged = hasItBeenChangedTmp
+																}
+							
+																
+							
+																
+							
+																if hasItBeenChanged{
+																	//fmt.Println(newWeightModel)
+																	modelName := uuid.New()
+																	saveEvalLocation := selectedProject + "/" + copyTo + "/" + modelName.String() + ".json"
+																	if strings.HasPrefix(saveEvalLocation, "/path/") {
+																		saveEvalLocation = strings.TrimPrefix(saveEvalLocation, "/path/")
+																	}
+							
+																	convertModel,err := convertToMap(*newWeightModel)
+																	if err != nil{
+																		fmt.Println("failed to convert model")
+																	}else{
+																		saveDataToFile(saveEvalLocation, selectedComputerDataCache, convertModel)
+																	}										
+																}
+																//break
+															}
+
+														
+														}
+													}
+												}
+											}
+										}
+									}
+
+									startEval(js)
+									ranking(selectedComputer, selectedProject)
+								}
+							}
+						}
+					}
+					//+ strconv.Itoa(i)
+					//fmt.Println(getOldRankingsUrl)
+					/*getRankings, getRankingsErr := parseJSONFromURL(getOldRankingsUrl)
+					if _, ok := evalFolders["eval_init"]; ok {
+						fmt.Println("evalSEE",projectFiles)
+					}*/
+				}
 			}
+
+			/*
 			//fmt.Println(js)
+
+
+			if _, ok := evalFolders["eval_" + strconv.Itoa(i)]; ok {
+				createNewGeneration(selectedComputer,selectedProject,selectedDataPath,selectedComputerDataCache,"eval_" + strconv.Itoa(i), i + 1)
+			} 
+
 			startEval(js)
 
 			dataProjectItems, dataProjectItemsOk := dataProjectItemsInterface.([]map[string]interface{})
@@ -67,7 +251,7 @@ func runRMHC(selectedComputer string, selectedProject string, selectedDataPath s
 
 			if _, ok := evalFolders["eval_" + strconv.Itoa(i)]; ok {
 				createNewGeneration(selectedComputer,selectedProject,selectedDataPath,selectedComputerDataCache,"eval_" + strconv.Itoa(i), i + 1)
-			} 
+			} */
 		}
 
 		//break
