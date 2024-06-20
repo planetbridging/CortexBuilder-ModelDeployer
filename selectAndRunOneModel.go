@@ -9,7 +9,7 @@ import (
 )
 
 func selectAndTestOneModel() {
-	getModelLink := "http://localhost:4124/files/localhost:4123/testing/2/9e641c54-139f-4677-be70-35fd424585e8.json"
+	getModelLink := "http://localhost:4123/files/testmodel.json"
 
 	nnConfigJSON, err := getRequest(getModelLink)
 	if err != nil {

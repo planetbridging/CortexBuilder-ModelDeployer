@@ -21,7 +21,7 @@ var lstMutations = []string{
 }
 
 func testingSetupRMHC() {
-	runRMHC("localhost", "/path/testing", "./host/data.csv", 5)
+	runRMHC("localhost", "/path/testing", "./host/data.csv", 100)
 }
 
 func printOutMap(js map[string]interface{}) {
